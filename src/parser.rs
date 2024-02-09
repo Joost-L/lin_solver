@@ -34,7 +34,26 @@ impl ParseState {
 }
 
 
-
+/// Parses a string of an equation into a vector. 
+/// the i-th float in the vector is the factor of the i-th term
+/// 
+/// # Examples
+/// 
+/// ```
+/// let line = "2 + 1x1 + 0x2 - 4x3";
+/// let res = lin_solver::parser::parse_line(line).unwrap();
+/// 
+/// assert_eq!(res,vec![2.0, 1.0,  0.0, -4.0]);
+/// ```
+/// 
+/// Variable names are ignored:
+/// ```
+/// let line = "0 + 1 + 2a - 3a";
+/// let res = lin_solver::parser::parse_line(line).unwrap();
+/// 
+/// assert_eq!(res,vec![0.0, 1.0, 2.0, -3.0]);
+/// ```
+/// 
 pub fn parse_line(line:&str) -> Result<Vec<f32>, &'static str> {
     let mut result:Vec<f32> = vec![];
     let mut state = ParseState {
@@ -73,7 +92,23 @@ pub fn parse_line(line:&str) -> Result<Vec<f32>, &'static str> {
     Ok(result)
 }
 
-pub fn parse_arg(arg:String) -> Result<SystemEq, &'static str> {
+/// Parses a string containing multiple lines into a system of linear equations
+/// 
+/// # Important details
+/// Each line should contain the same number of terms in the same order.\
+/// repeatedly calls [parse_line]
+/// 
+/// # Examples
+/// The first line corresponds to the objective function
+/// ```
+/// let input = String::from(   "0 + x
+///                             3 - x
+///                             -2 + 4x");
+/// let res = lin_solver::parser::parse_to_system(input).unwrap();
+/// assert_eq!(res.objective,   vec![0.0, 1.0]);
+/// assert_eq!(res.constraints, vec![[3.0, -1.0],[-2.0, 4.0]]);
+/// ```
+pub fn parse_to_system(arg:String) -> Result<SystemEq, &'static str> {
 
     let mut lines = arg.lines();
     let objective = lines.next()

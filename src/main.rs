@@ -15,7 +15,7 @@ fn main() {
     });
 
     let file_contents = fs::read_to_string(file_path).expect("Couldn't read file");
-    let matrix = parser::parse_arg(file_contents);
+    let matrix = parser::parse_to_system(file_contents);
 
     println!("Resulting Equation: {:?}",matrix)
 }
