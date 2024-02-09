@@ -96,7 +96,7 @@ impl SystemEq {
     /// ```
     pub fn solve(&mut self) -> f32 {
         let mut i:u8 = 0;
-        while i < 20 {
+        while i < 100 {
             if let Some(x_index) = self.first_positive() {
                 self.rewrite_system(x_index);
             } else {
@@ -104,7 +104,7 @@ impl SystemEq {
             }
             i += 1;
         }
-        panic!("Couldn't solve linear system within 20 moves")
+        panic!("Couldn't solve linear system within 100 moves")
     }
     
     /// Given the index of a variable, will rewrite that variable as a basic variable

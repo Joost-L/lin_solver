@@ -3,9 +3,6 @@ use lin_solver;
 use lin_solver::parser;
 use std::process;
 use std::fs;
-//get file name from args
-//read out file
-//Parse as linear program
 
 fn main() {
     let args = env::args();
