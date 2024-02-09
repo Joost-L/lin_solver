@@ -76,7 +76,36 @@ impl SystemEq {
         None
     }
 
-
+    /// Finds the optimal solution for the objective function of SystemEq\
+    /// Under the constraints given.
+    /// 
+    /// # Examples
+    /// ```
+    /// let mut system = lin_solver::solver::SystemEq {
+    ///     var_len:2,
+    ///     objective:vec![1.0,2.0],
+    ///     constraints:vec![
+    ///         vec![4.0,-2.0],
+    ///         vec![1.0, 1.0]
+    ///     ]
+    /// };
+    /// let res = system.solve();
+    /// 
+    /// assert_eq!(res,5.0);
+    /// assert_eq!(system.constraints[0],vec![2.0, -0.5]);
+    /// ```
+    pub fn solve(&mut self) -> f32 {
+        let mut i:u8 = 0;
+        while i < 20 {
+            if let Some(x_index) = self.first_positive() {
+                self.rewrite_system(x_index);
+            } else {
+                return self.objective[0];
+            }
+            i += 1;
+        }
+        panic!("Couldn't solve linear system within 20 moves")
+    }
     
     /// Given the index of a variable, will rewrite that variable as a basic variable
     /// 
