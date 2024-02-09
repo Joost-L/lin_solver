@@ -80,6 +80,10 @@ impl SystemEq {
     
     /// Given the index of a variable, will rewrite that variable as a basic variable
     /// 
+    /// # Panics
+    /// If x never occurs negatively in the constraints\
+    /// i.e. the system is unbounded on x.
+    /// 
     /// # Examples
     /// ```
     /// let mut system = lin_solver::solver::SystemEq {
@@ -123,6 +127,8 @@ impl SystemEq {
                     substitute(&formula, x_index, constraint)
                 }
             }
+        } else {
+            panic!("System is unbounded!");
         }
     }
 }
