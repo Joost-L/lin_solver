@@ -23,7 +23,6 @@
 
 pub mod parser;
 pub mod solver;
-pub mod example;
 extern crate nalgebra as na;
 
 
