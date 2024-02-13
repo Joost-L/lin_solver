@@ -1,6 +1,4 @@
-use std::ops::Add;
-
-use nalgebra::{RowDVector, DMatrix, Dyn, Matrix, U1,ViewStorageMut,Dim};
+use nalgebra::{RowDVector, DMatrix, Matrix, U1, Dim, RawStorageMut, RowVector};
 
 #[derive(Debug)]
 pub struct LinearSystem {
@@ -14,7 +12,9 @@ impl std::fmt::Display for LinearSystem {
     }
 }
 
-fn substitute<T:Dim>(x_definition: &RowDVector<f32>, x_index:usize, formula:&mut Matrix<f32,U1,Dyn,ViewStorageMut<'_,f32,U1,Dyn,U1,T>>)
+fn substitute<D:Dim,S>(x_definition: &RowDVector<f32>, x_index:usize, formula:&mut Matrix<f32,U1,D,S>)
+    where
+        S:RawStorageMut<f32,U1,D>
 {
     let k = formula[x_index];
     formula[x_index] = 0.0;
@@ -22,6 +22,22 @@ fn substitute<T:Dim>(x_definition: &RowDVector<f32>, x_index:usize, formula:&mut
     let scaled_x = x_definition.scale(k);
     let _res :Vec<_> = formula.iter_mut().zip(scaled_x.iter()).map(|(f,x)| *f = *f + x).collect();
 } 
+
+
+/// # Examples
+/// ```
+/// use nalgebra::RowDVector;
+/// let mut vec = RowDVector::from_vec(vec![-1.0, 2.0, 4.0]);
+/// 
+/// lin_solver::solver::scale(&mut vec,2.0);
+/// assert_eq!(vec,RowDVector::from_vec(vec![-2.0, 4.0, 8.0]))
+/// ```
+pub fn scale<D:Dim,S>(formula:&mut RowVector<f32,D,S>, factor:f32)
+    where
+        S:RawStorageMut<f32,U1,D>
+{
+    let _:Vec<_> = formula.iter_mut().map(|x| *x = *x * factor).collect();
+}
 
 /// Rewrite a linear formula by swapping a basic and non-basic variable
 /// 
@@ -35,15 +51,19 @@ fn substitute<T:Dim>(x_definition: &RowDVector<f32>, x_index:usize, formula:&mut
 /// 
 /// assert_eq!(formula, RowDVector::from_vec(vec![-2.0, 0.5])) 
 /// ```
-pub fn rewrite(formula:&mut RowDVector<f32>, x_index:usize) {
+pub fn rewrite<D:Dim, S>(formula:&mut RowVector<f32,D,S>, x_index:usize)
+    where
+        S:RawStorageMut<f32,U1,D>,
+{
     let x_factor = formula[x_index];
 
     //swap  w = ... + q x + ...
     //to    q x = ... - w + ...
     let f_factor = -1.0/x_factor;
     formula[x_index] = -1.0; 
-    *formula = formula.scale(f_factor)
-    //RowDVector::from_iterator(formula.iter().map(|a| a * f_factor));
+
+    //divide by q
+    scale(formula,f_factor);
 }
 
 impl LinearSystem {
