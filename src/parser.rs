@@ -1,4 +1,6 @@
-use crate::solver::SystemEq;
+use nalgebra::{DMatrix, RowDVector};
+
+use crate::solver::LinearSystem;
 
 enum ReadMode {
     Number,
@@ -40,21 +42,23 @@ impl ParseState {
 /// # Examples
 /// 
 /// ```
+/// use nalgebra::RowDVector;
 /// let line = "2 + 1x1 + 0x2 - 4x3";
 /// let res = lin_solver::parser::parse_line(line).unwrap();
 /// 
-/// assert_eq!(res,vec![2.0, 1.0,  0.0, -4.0]);
+/// assert_eq!(res, RowDVector::from_vec(vec![2.0, 1.0,  0.0, -4.0]));
 /// ```
 /// 
 /// Variable names are ignored:
 /// ```
+/// use nalgebra::RowDVector;
 /// let line = "0 + 1 + 2a - 3a";
 /// let res = lin_solver::parser::parse_line(line).unwrap();
 /// 
-/// assert_eq!(res,vec![0.0, 1.0, 2.0, -3.0]);
+/// assert_eq!(res, RowDVector::from_vec(vec![0.0, 1.0, 2.0, -3.0]));
 /// ```
 /// 
-pub fn parse_line(line:&str) -> Result<Vec<f32>, &'static str> {
+pub fn parse_line(line:&str) -> Result<RowDVector<f32>, &'static str> {
     let mut result:Vec<f32> = vec![];
     let mut state = ParseState {
         number_buffer:None,
@@ -89,7 +93,7 @@ pub fn parse_line(line:&str) -> Result<Vec<f32>, &'static str> {
         }
     }
     if let Some(n) = state.submit() { result.push(n) }
-    Ok(result)
+    Ok(RowDVector::from_vec( result ))
 }
 
 /// Parses a string containing multiple lines into a system of linear equations
@@ -101,30 +105,23 @@ pub fn parse_line(line:&str) -> Result<Vec<f32>, &'static str> {
 /// # Examples
 /// The first line corresponds to the objective function
 /// ```
+/// use nalgebra::{RowDVector, Matrix2};
 /// let input = String::from(   "0 + x
 ///                             3 - x
 ///                             -2 + 4x");
 /// let res = lin_solver::parser::parse_to_system(input).unwrap();
-/// assert_eq!(res.objective,   vec![0.0, 1.0]);
-/// assert_eq!(res.constraints, vec![[3.0, -1.0],[-2.0, 4.0]]);
+/// assert_eq!(res.objective,   RowDVector::from_vec(vec![0.0, 1.0]));
+/// assert_eq!(res.constraints, Matrix2::new( 3.0, -1.0,
+///                                                 -2.0, 4.0));
 /// ```
-pub fn parse_to_system(arg:String) -> Result<SystemEq, &'static str> {
+pub fn parse_to_system(arg:String) -> Result<LinearSystem, &'static str> {
 
-    let mut lines = arg.lines();
-    let objective = lines.next()
-        .expect("Need at least one equation for the objective function");
-    let objective = parse_line(objective)?;
-
-    let mut constraints:Vec<Vec<f32>> = vec![];
-    for line in lines {
-        constraints.push(parse_line(line)?)
-    }
-
-    Ok(SystemEq { 
-        var_len:objective.len(),
-        objective, 
-        constraints,
-    })
+    let mut vectors = arg.lines().map(|s| parse_line(s));
+    let objective = vectors.next()
+                .expect("Need at least one equation for the objective function")?;
+    let vectors :Result<Vec<RowDVector<f32>>,_> = vectors.collect();
+    let constraints:DMatrix<f32> = DMatrix::from_rows(&vectors?[..]);
+    Ok(LinearSystem { objective, constraints })
 }
 
 #[cfg(test)]
@@ -136,7 +133,9 @@ mod tests {
         let input = "1";
         let vec = parse_line(input);
 
-        assert_eq!(vec, Ok(vec![1.0]))
+        assert_eq!(vec, 
+            Ok(RowDVector::from_vec(vec![1.0]))
+        );
     }
 
     #[test]
@@ -144,7 +143,9 @@ mod tests {
         let input = "4 -x1 + 3x2";
         let vec = parse_line(input);
 
-        assert_eq!(vec, Ok(vec![4.0 , -1.0, 3.0]));
+        assert_eq!(vec, 
+            Ok(RowDVector::from_vec(vec![4.0 , -1.0, 3.0]))
+        );
     }
 
     #[test]
@@ -152,6 +153,8 @@ mod tests {
         let input = "-0 +2x1 -0x2";
         let vec = parse_line(input);
 
-        assert_eq!(vec, Ok(vec![0.0, 2.0, 0.0]))
+        assert_eq!(vec, 
+            Ok(RowDVector::from_vec(vec![0.0, 2.0, 0.0]))
+        );
     }
 }

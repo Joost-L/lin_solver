@@ -13,16 +13,19 @@
 //! let input ="1 + 2x
 //!             4 - 2x
 //!             0 + x";
-//! let system = lin_solver::parser::parse_to_system(input);
-//! let res = system.solve();
+//! let system = lin_solver::parser::parse_to_system(input.to_string());
+//! let res = system.unwrap().solve();
 //! assert_eq!(5.0, res);
 //! ```
 //! # Furture
-//! I want to rework this crate using proper arrays and matrices\
+//! More flexible function types in nalgebra\
 //! More flexible parsing that can read variable names
 
 pub mod parser;
 pub mod solver;
+pub mod example;
+extern crate nalgebra as na;
+
 
 pub fn read_args(mut args:impl Iterator<Item = String>) -> Result<String,&'static str> {
     args.next();

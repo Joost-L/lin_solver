@@ -1,42 +1,26 @@
 use std::ops::Add;
 
+use nalgebra::{RowDVector, DMatrix, Dyn, Matrix, U1,ViewStorageMut,Dim};
+
 #[derive(Debug)]
-pub struct SystemEq {
-    pub var_len:usize,
-    pub objective:Vec<f32>,
-    pub constraints:Vec<Vec<f32>>
+pub struct LinearSystem {
+    pub objective : RowDVector<f32>,
+    pub constraints: DMatrix<f32>
 }
 
-
-/// Zips two vectors by adding their elements
-/// 
-/// # Panics
-/// If the two vectors do not have the same length
-/// 
-/// # Examples
-/// 
-/// ```
-/// let a = vec![0,1,2,3];
-/// let b = vec![0,2,4,6];
-/// let res = lin_solver::solver::add_vec(&a, &b);
-/// 
-/// assert_eq!(res,vec![0,3,6,9]);
-/// ```
-pub fn add_vec<T>(a:&Vec<T>, b:&Vec<T>) -> Vec<T>
-    where T:Add<Output = T> + Copy
-{
-    if a.len() != b.len() {
-        panic!("Length of vector a does not match length of vector b!\na.len():{}\nb.len():{}",a.len(),b.len())
+impl std::fmt::Display for LinearSystem {
+    fn fmt(&self, f:&mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f,"objective:{}constraints:{}",self.objective,self.constraints)
     }
-    a.iter().zip(b.iter()).map(|(x,y)| *x + *y).collect()
 }
 
-fn substitute(x_definition: &Vec<f32>, x_index:usize, formula:&mut Vec<f32>) {
+fn substitute<T:Dim>(x_definition: &RowDVector<f32>, x_index:usize, formula:&mut Matrix<f32,U1,Dyn,ViewStorageMut<'_,f32,U1,Dyn,U1,T>>)
+{
     let k = formula[x_index];
     formula[x_index] = 0.0;
 
-    let scaled_x = x_definition.iter().map(|a| a * k).collect();
-    *formula = add_vec(formula,&scaled_x);
+    let scaled_x = x_definition.scale(k);
+    let _res :Vec<_> = formula.iter_mut().zip(scaled_x.iter()).map(|(f,x)| *f = *f + x).collect();
 } 
 
 /// Rewrite a linear formula by swapping a basic and non-basic variable
@@ -45,23 +29,24 @@ fn substitute(x_definition: &Vec<f32>, x_index:usize, formula:&mut Vec<f32>) {
 /// Rewrite w = 4 + 2 x\
 /// to x = -2 + 0.5 w 
 /// ```
-/// let mut formula = vec![4.0, 2.0];
+/// use nalgebra::RowDVector;
+/// let mut formula = RowDVector::from_vec(vec![4.0, 2.0]);
 /// lin_solver::solver::rewrite(&mut formula, 1);
 /// 
-/// assert_eq!(formula, vec![-2.0, 0.5]) 
+/// assert_eq!(formula, RowDVector::from_vec(vec![-2.0, 0.5])) 
 /// ```
-pub fn rewrite(formula:&mut Vec<f32>, x_index:usize) {
+pub fn rewrite(formula:&mut RowDVector<f32>, x_index:usize) {
     let x_factor = formula[x_index];
 
     //swap  w = ... + q x + ...
     //to    q x = ... - w + ...
     let f_factor = -1.0/x_factor;
     formula[x_index] = -1.0; 
-
-    *formula = formula.iter().map(|a| a * f_factor).collect();
+    *formula = formula.scale(f_factor)
+    //RowDVector::from_iterator(formula.iter().map(|a| a * f_factor));
 }
 
-impl SystemEq {
+impl LinearSystem {
     fn first_positive(&self) -> Option<usize> {
         let mut objective_iter = self.objective.iter();
         objective_iter.next(); //ignore constant
@@ -81,18 +66,18 @@ impl SystemEq {
     /// 
     /// # Examples
     /// ```
-    /// let mut system = lin_solver::solver::SystemEq {
-    ///     var_len:2,
-    ///     objective:vec![1.0,2.0],
-    ///     constraints:vec![
-    ///         vec![4.0,-2.0],
-    ///         vec![1.0, 1.0]
-    ///     ]
+    /// use nalgebra::{DMatrix, RowDVector};
+    /// let mut system = lin_solver::solver::LinearSystem{
+    ///     objective:RowDVector::from_vec(vec![1.0,2.0]),
+    ///     constraints:DMatrix::from_row_slice(2,2, &[
+    ///         4.0, -2.0,
+    ///         1.0, 1.0
+    ///     ])
     /// };
     /// let res = system.solve();
     /// 
     /// assert_eq!(res,5.0);
-    /// assert_eq!(system.constraints[0],vec![2.0, -0.5]);
+    /// assert_eq!(system.constraints, DMatrix::from_row_slice(2,2, &[2.0,-0.5, 3.0, -0.5]));
     /// ```
     pub fn solve(&mut self) -> f32 {
         let mut i:u8 = 0;
@@ -115,25 +100,25 @@ impl SystemEq {
     /// 
     /// # Examples
     /// ```
-    /// let mut system = lin_solver::solver::SystemEq {
-    ///     var_len:2,
-    ///     objective:vec![1.0,2.0],
-    ///     constraints:vec![
-    ///         vec![4.0,-2.0],
-    ///         vec![1.0, 1.0]
-    ///     ]
+    /// use nalgebra::{DMatrix, RowDVector};
+    /// let mut system = lin_solver::solver::LinearSystem{
+    ///     objective:RowDVector::from_vec(vec![1.0,2.0]),
+    ///     constraints:DMatrix::from_row_slice(2,2, &[
+    ///         4.0, -2.0,
+    ///         1.0, 1.0
+    ///     ])
     /// };
     /// system.rewrite_system(1);
     /// 
-    /// assert_eq!(system.constraints[0],vec![2.0, -0.5]);
-    /// assert_eq!(system.constraints[1],vec![3.0, -0.5]);
-    /// assert_eq!(system.objective, vec![5.0, -1.0]);
+    /// println!("{}", system.constraints);
+    /// assert_eq!(system.constraints, DMatrix::from_row_slice(2,2, &[2.0,-0.5, 3.0, -0.5]));
+    /// assert_eq!(system.objective, RowDVector::from_vec(vec![5.0, -1.0]));
     /// ```
     pub fn rewrite_system(&mut self, x_index:usize) {
         //find most restrictive constraint
         let mut most_res:Option<(usize,f32)> = None;
 
-        for (i, constraint) in self.constraints.iter().enumerate() {
+        for (i, constraint) in self.constraints.row_iter().enumerate() {
             if constraint[x_index] >= 0.0 {continue;}
 
             let local_max = constraint[0]/constraint[x_index];
@@ -146,16 +131,16 @@ impl SystemEq {
         }
 
         if let Some((formula_index,_)) = most_res {
-            let formula = &mut self.constraints[formula_index];
-            rewrite(formula, x_index);
+            let mut formula :RowDVector<f32> = self.constraints.row(formula_index).clone_owned();
+            rewrite(&mut formula, x_index);
             
-            substitute(formula, x_index, &mut self.objective);
-            let formula = formula.to_owned();
-            for (i,constraint) in self.constraints.iter_mut().enumerate() {
+            substitute(&formula, x_index, &mut self.objective.row_mut(0));
+            for (i,mut constraint) in self.constraints.row_iter_mut().enumerate() {
                 if i != formula_index {
-                    substitute(&formula, x_index, constraint)
+                    substitute(&formula, x_index, &mut constraint);
                 }
             }
+            self.constraints.set_row(formula_index, &formula);
         } else {
             panic!("System is unbounded!");
         }

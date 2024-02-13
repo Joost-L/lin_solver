@@ -4,7 +4,7 @@ use lin_solver::parser;
 use std::process;
 use std::fs;
 
-fn main() {
+fn main() -> Result<(),&'static str> {
     let args = env::args();
     let file_path = lin_solver::read_args(args).unwrap_or_else(|err|{
         eprint!("problem parsing arguments: {}", err);
@@ -12,7 +12,11 @@ fn main() {
     });
 
     let file_contents = fs::read_to_string(file_path).expect("Couldn't read file");
-    let matrix = parser::parse_to_system(file_contents);
+    let mut matrix = parser::parse_to_system(file_contents)?;
 
-    println!("Resulting Equation: {:?}",matrix)
+    println!("System: {}",matrix);
+
+    let res = matrix.solve();
+    println!("Solved System: value:{}\n{}", res, matrix);
+    Ok(())
 }
